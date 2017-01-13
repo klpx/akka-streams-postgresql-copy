@@ -62,16 +62,3 @@ private[klpx] class PgCopySinkStage(sql: String,
     stageLogic -> completePromise.future
   }
 }
-
-
-/*
-        def esc(s: String) = s.replace("\\", "\\\\")
-            .productIterator
-            .map {
-              case None => """\N"""
-              case Some(value) => esc(value.toString)
-              case value => esc(value.toString)
-            }
-            .mkString("", "\t", "\n")
-            .getBytes
- */

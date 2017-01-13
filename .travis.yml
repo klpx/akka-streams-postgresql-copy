@@ -11,4 +11,4 @@ services:
 
 script:
   - sbt compile
-  - sbt test
+  - sbt coverage test coverageReport coverageOff

@@ -6,7 +6,7 @@ scalaVersion := "2.12.1"
 crossScalaVersions := Seq("2.12.1", "2.11.8")
 
 
-libraryDependencies := {
+libraryDependencies ++= {
   val akkaVer = "2.4.16"
 
   Seq(
