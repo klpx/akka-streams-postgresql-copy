@@ -38,7 +38,7 @@ trait PostgresFixture extends BaseFixture {
   private val username = "postgres"
   private val password = "postgres"
 
-  def pgContainerConnectionTimeout: JDuration = JDuration.ofSeconds(5)
+  def pgContainerConnectionTimeout: JDuration = JDuration.ofSeconds(20)
   def pgContainerConnectionTryInterval: JDuration = JDuration.ofMillis(200)
 
 
