@@ -1,7 +1,7 @@
 package com.github.klpx.akka
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Flow, Sink}
+import akka.stream.scaladsl.{Flow, Keep, Sink}
 import akka.util.ByteString
 import org.postgresql.PGConnection
 
@@ -24,9 +24,15 @@ object PgCopyStreamConverters {
             case value => esc(value.toString)
           }
           .mkString("", "\t", "\n")
+          .getBytes(encoding)
       }
-      .map(ByteString.apply(_: String, encoding))
+      .map(ByteString.fromArray)
 
+
+  def sink(sql: String, getConnection: => PGConnection, encoding: String = "UTF-8"): Sink[Product, Future[Long]] =
+    encodeTuples(encoding)
+      .toMat(bytesSink(sql, getConnection))(Keep.right)
+      .named("pgCopySink")
 
   def bytesSink(sql: String, getConnection: => PGConnection): Sink[ByteString, Future[Long]] =
     Sink.fromGraph(new PgCopySinkStage(sql, getConnection))

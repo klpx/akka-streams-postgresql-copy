@@ -1,19 +1,18 @@
 package it
 
-import util.docker.PostgresFixture
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{AsyncFlatSpec, Matchers}
+import util.PostgresFixture
 
 /**
   * Check for integration with Postgres in Docker is working
   */
-class HealthcheckSpec extends FlatSpec with Matchers with PostgresFixture {
+class HealthcheckSpec extends AsyncFlatSpec with Matchers with PostgresFixture {
 
   "withPostgresConnection" should "provide working connection" in {
-    withPostgresConnection(Postgres_9_4_10) { getConn =>
-      val conn = getConn()
-      val rs = conn.execSQLQuery("SELECT 1+1")
+    withPostgres("healthcheck") { conn =>
+      val rs = conn.execSQLQuery("SELECT is_ok FROM status")
       rs.next()
-      rs.getInt(1) shouldBe 2
+      rs.getBoolean(1) shouldBe true
     }
   }
 }

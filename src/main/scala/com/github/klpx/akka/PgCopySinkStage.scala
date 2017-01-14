@@ -5,8 +5,9 @@ import akka.stream.{Attributes, Inlet, SinkShape}
 import akka.util.ByteString
 import org.postgresql.PGConnection
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future, Promise}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /**
   * Sinks ByteString as postgres COPY data, returns count of rows copied
@@ -24,15 +25,13 @@ private[klpx] class PgCopySinkStage(sql: String,
       private val conn = getConnection
 
       private val copyIn = conn.getCopyAPI.copyIn(sql)
-      private var bytesCopied = 0
 
       override def preStart(): Unit = pull(in)
 
       def onPush(): Unit = {
         val buf = grab(in)
         try {
-          copyIn.writeToCopy(buf.toArray, bytesCopied, buf.length)
-          bytesCopied += buf.length
+          copyIn.writeToCopy(buf.toArray, 0, buf.length)
           pull(in)
         } catch {
           case ex: Throwable => onUpstreamFailure(ex)
@@ -40,9 +39,14 @@ private[klpx] class PgCopySinkStage(sql: String,
       }
 
       override def onUpstreamFinish(): Unit = {
-        val rowsCopiedTry = Try(copyIn.endCopy())
-        completePromise.tryComplete(rowsCopiedTry)
-        completeStage()
+        Try(copyIn.endCopy()) match {
+          case Success(rowsCopied) =>
+            completePromise.trySuccess(rowsCopied)
+            completeStage()
+          case Failure(ex) =>
+            completePromise.tryFailure(ex)
+            failStage(ex)
+        }
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
