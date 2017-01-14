@@ -16,10 +16,12 @@ cache:
     - $HOME/.ivy2
 
 addons:
-  code_climate:
-    repo_token: 1a700ae01e71b2397993af47ab5c85bd0c46105c53fdd9e4330a3b7a2ba344aa
   postgresql: "9.4"
 
 script:
   - sbt compile
-  - sbt coverage test coverageReport coverageOff
+  - sbt coverage test
+
+after_success:
+  - sbt coverageReport coveralls
+

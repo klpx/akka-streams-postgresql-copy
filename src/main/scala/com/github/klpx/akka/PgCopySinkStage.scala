@@ -34,7 +34,9 @@ private[klpx] class PgCopySinkStage(sql: String,
           copyIn.writeToCopy(buf.toArray, 0, buf.length)
           pull(in)
         } catch {
-          case ex: Throwable => onUpstreamFailure(ex)
+          case ex: Throwable =>
+            completePromise.tryFailure(ex)
+            failStage(ex)
         }
       }
 
