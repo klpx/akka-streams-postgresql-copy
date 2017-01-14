@@ -1,6 +1,6 @@
-sudo: required
-
 language: scala
+
+jdk: oraclejdk8
 
 scala:
   - 2.11.8
