@@ -2,17 +2,24 @@ package it
 
 import java.sql.ResultSet
 
+import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.github.klpx.akka.PgCopyStreamConverters
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
 import util.{ActorSystemFixture, PostgresFixture}
 
 /**
   * Check for integration with Postgres in Docker is working
   */
-class CopySinkSpec extends AsyncFlatSpec with Matchers with PostgresFixture with ActorSystemFixture {
+class CopySinkSpec extends AsyncFlatSpec with Matchers with PostgresFixture with BeforeAndAfterAll {
+
+  implicit val system = ActorSystem()
+  implicit val materializer = ActorMaterializer()
+  override def afterAll(): Unit = {
+    system.terminate()
+  }
 
   def fetchPeople(rs: ResultSet): (Long, String, Int) = {
     rs.next()
@@ -20,51 +27,45 @@ class CopySinkSpec extends AsyncFlatSpec with Matchers with PostgresFixture with
   }
 
   "PgCopySink" should "copy simple stream with one element" in {
-    withActorSystem { implicit system =>
-      implicit val mat = ActorMaterializer()
-      withPostgres("people_empty") { conn =>
-        Source.single("Alex\t25\nLisa\t21\n")
-          .map(s => ByteString(s))
-          .runWith(PgCopyStreamConverters.bytesSink(
-            "COPY people (name, age) FROM STDIN", conn
-          ))
-          .map { rowCount =>
-            rowCount shouldBe 2
+    withPostgres("people_empty") { conn =>
+      Source.single("Alex\t25\nLisa\t21\n")
+        .map(s => ByteString(s))
+        .runWith(PgCopyStreamConverters.bytesSink(
+          "COPY people (name, age) FROM STDIN", conn
+        ))
+        .map { rowCount =>
+          rowCount shouldBe 2
 
-            val rs = conn.execSQLQuery("SELECT id, name, age FROM people")
-            val firstPeople = fetchPeople(rs)
-            val secondPeople = fetchPeople(rs)
+          val rs = conn.execSQLQuery("SELECT id, name, age FROM people")
+          val firstPeople = fetchPeople(rs)
+          val secondPeople = fetchPeople(rs)
 
-            firstPeople shouldBe (1L, "Alex", 25)
-            secondPeople shouldBe (2L, "Lisa", 21)
-          }
-      }
+          firstPeople shouldBe (1L, "Alex", 25)
+          secondPeople shouldBe (2L, "Lisa", 21)
+        }
     }
   }
 
   it should "copy simple Seq of tuples" in {
-    withActorSystem { implicit system =>
-      implicit val mat = ActorMaterializer()
-      val actualFirstPeople = (1L, "Alex", 25)
-      val actualSecondPeople = (2L, "Lisa", 21)
-      withPostgres("people_empty") { conn =>
-        Source.fromIterator(() => Iterator(actualFirstPeople, actualSecondPeople))
-          .runWith(PgCopyStreamConverters.sink(
-            "COPY people (id, name, age) FROM STDIN",
-            conn
-          ))
-          .map { rowCount =>
-            rowCount shouldBe 2
+    val actualFirstPeople = (1L, "Alex", 25)
+    val actualSecondPeople = (2L, "Lisa", 21)
+    withPostgres("people_empty") { conn =>
+      Source.fromIterator(() => Iterator(actualFirstPeople, actualSecondPeople))
+        .runWith(PgCopyStreamConverters.sink(
+          "COPY people (id, name, age) FROM STDIN",
+          conn
+        ))
+        .map { rowCount =>
+          rowCount shouldBe 2
 
-            val rs = conn.execSQLQuery("SELECT id, name, age FROM people")
-            val firstPeople = fetchPeople(rs)
-            val secondPeople = fetchPeople(rs)
-            conn.close()
+          val rs = conn.execSQLQuery("SELECT id, name, age FROM people")
+          val firstPeople = fetchPeople(rs)
+          val secondPeople = fetchPeople(rs)
+          conn.close()
 
-            firstPeople shouldBe actualFirstPeople
-            secondPeople shouldBe actualSecondPeople
-          }
-      }
+          firstPeople shouldBe actualFirstPeople
+          secondPeople shouldBe actualSecondPeople
+        }
     }
   }
 }

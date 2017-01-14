@@ -14,8 +14,9 @@ libraryDependencies ++= {
     ,"com.typesafe.akka" %% "akka-stream-testkit" % akkaVer    % "provided,test"
     ,"org.postgresql"    %  "postgresql"          % "9.4.1212" % "provided,test"
 
-    ,"org.scalatest"          %% "scalatest"   % "3.0.1" % "test"
-    ,"com.github.docker-java" %  "docker-java" % "3.0.6" % "test"
+    ,"org.scalatest" %% "scalatest"    % "3.0.1" % "test"
+    ,"org.mockito"   %  "mockito-core" % "2.+"   % "test"
+    //    ,"org.scalamock" %% "scalamock-scalatest-support" % "3.4.2" % "test"
   )
 }
 
