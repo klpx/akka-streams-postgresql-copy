@@ -30,7 +30,7 @@ val peoples = Seq(
 )
 Source.fromIterator(() => peoples.iterator)
   .runWith(PgCopyStreamConverters.sink(
-    "COPY people (id, name, age) FROM STDIN", connection
+    "COPY people (id, name, tags) FROM STDIN", connection
   ))
 ```
 
