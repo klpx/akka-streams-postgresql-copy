@@ -4,6 +4,7 @@ import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHa
 import akka.stream.{Attributes, Inlet, SinkShape}
 import akka.util.ByteString
 import org.postgresql.PGConnection
+import org.postgresql.copy.CopyIn
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future, Promise}
@@ -12,20 +13,24 @@ import scala.util.{Failure, Success, Try}
 /**
   * Sinks ByteString as postgres COPY data, returns count of rows copied
   */
-private[streams] class PgCopySinkStage(sql: String,
-                      getConnection: => PGConnection
-                     ) extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[Long]] {
+private[streams] class PgCopySinkStage(connectionProvider: ConnectionProvider, query: String) extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[Long]] {
 
   private val in = Inlet[ByteString]("PgCopySink.in")
 
   def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[Long]) = {
+
     val completePromise = Promise[Long]()
     val stageLogic = new GraphStageLogic(shape) with InHandler {
-      private val conn = getConnection
+      private var copyIn: CopyIn = _
 
-      private val copyIn = conn.getCopyAPI.copyIn(sql)
-
-      override def preStart(): Unit = pull(in)
+      override def preStart(): Unit = {
+        connectionProvider.acquire() match {
+          case Success(conn) =>
+            copyIn = conn.getCopyAPI.copyIn(query)
+            pull(in)
+          case Failure(ex) => fail(ex)
+        }
+      }
 
       def onPush(): Unit = {
         val buf = grab(in)
@@ -33,9 +38,7 @@ private[streams] class PgCopySinkStage(sql: String,
           copyIn.writeToCopy(buf.toArray, 0, buf.length)
           pull(in)
         } catch {
-          case ex: Throwable =>
-            completePromise.tryFailure(ex)
-            failStage(ex)
+          case ex: Throwable => fail(ex)
         }
       }
 
@@ -44,9 +47,7 @@ private[streams] class PgCopySinkStage(sql: String,
           case Success(rowsCopied) =>
             completePromise.trySuccess(rowsCopied)
             completeStage()
-          case Failure(ex) =>
-            completePromise.tryFailure(ex)
-            failStage(ex)
+          case Failure(ex) => fail(ex)
         }
       }
 
@@ -56,9 +57,14 @@ private[streams] class PgCopySinkStage(sql: String,
             copyIn.cancelCopy()
           }
         } finally {
-          completePromise.tryFailure(ex)
-          failStage(ex)
+          fail(ex)
         }
+      }
+
+      private def fail(ex: Throwable): Unit = {
+        connectionProvider.release()
+        completePromise.tryFailure(ex)
+        failStage(ex)
       }
 
       setHandler(in, this)

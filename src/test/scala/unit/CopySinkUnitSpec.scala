@@ -4,17 +4,13 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import org.postgresql.PGConnection
-import org.postgresql.copy.{CopyIn, CopyManager}
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{AsyncFlatSpec, BeforeAndAfter, BeforeAndAfterAll, Matchers}
+import org.mockito.Mockito
 import org.mockito.Mockito._
-import org.mockito.ArgumentMatchers.any
-import org.mockito.{InOrder, Mockito}
+import org.scalatest.mockito.MockitoSugar
+import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
+import ru.arigativa.akka.streams.ConnectionProvider._
 import ru.arigativa.akka.streams.PgCopyStreamConverters
-import util.{ActorSystemFixture, PostgresMock}
-
-import scala.reflect.ClassTag
+import util.PostgresMock
 
 /**
   * Created by hsslbch on 1/14/17.
@@ -32,7 +28,7 @@ class CopySinkUnitSpec extends AsyncFlatSpec with Matchers with MockitoSugar wit
   "PgCopySink" should "write all bytes as is" in {
     val input = (0 to 255).map(_.toByte).toArray
     withCopyInMockedPostgres { (copyIn, conn) =>
-      Source.single(ByteString(input)).runWith(PgCopyStreamConverters.bytesSink("", conn))
+      Source.single(ByteString(input)).runWith(PgCopyStreamConverters.bytesSink(conn, ""))
         .map { _ =>
           val checkOrder = CheckOrder(copyIn)
           checkOrder.verify(copyIn).writeToCopy(input, 0, input.length)
@@ -47,7 +43,7 @@ class CopySinkUnitSpec extends AsyncFlatSpec with Matchers with MockitoSugar wit
     val inputError = new Error("some error")
     withCopyInMockedPostgres { (copyIn, conn) =>
       when(copyIn.isActive).thenReturn(true)
-      Source.failed(inputError).runWith(PgCopyStreamConverters.bytesSink("", conn))
+      Source.failed(inputError).runWith(PgCopyStreamConverters.bytesSink(conn, ""))
         .map(_ => fail("Stream should fail"))
         .recover {
           case outputError =>
@@ -65,7 +61,7 @@ class CopySinkUnitSpec extends AsyncFlatSpec with Matchers with MockitoSugar wit
     val inputError = new Error("some error")
     withCopyInMockedPostgres { (copyIn, conn) =>
       when(copyIn.isActive).thenReturn(false)
-      Source.failed(inputError).runWith(PgCopyStreamConverters.bytesSink("", conn))
+      Source.failed(inputError).runWith(PgCopyStreamConverters.bytesSink(conn, ""))
         .map(_ => fail("Stream should fail"))
         .recover {
           case outputError =>

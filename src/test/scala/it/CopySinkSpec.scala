@@ -7,8 +7,9 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
+import ru.arigativa.akka.streams.ConnectionProvider._
 import ru.arigativa.akka.streams.PgCopyStreamConverters
-import util.{ActorSystemFixture, PostgresFixture}
+import util.PostgresFixture
 
 /**
   * Check for integration with Postgres in Docker is working
@@ -30,9 +31,7 @@ class CopySinkSpec extends AsyncFlatSpec with Matchers with PostgresFixture with
     withPostgres("people_empty") { conn =>
       Source.single("Alex\t25\nLisa\t21\n")
         .map(s => ByteString(s))
-        .runWith(PgCopyStreamConverters.bytesSink(
-          "COPY people (name, age) FROM STDIN", conn
-        ))
+        .runWith(PgCopyStreamConverters.bytesSink(conn, "COPY people (name, age) FROM STDIN"))
         .map { rowCount =>
           rowCount shouldBe 2
 
@@ -51,10 +50,7 @@ class CopySinkSpec extends AsyncFlatSpec with Matchers with PostgresFixture with
     val actualSecondPeople = (2L, "Lisa", 21)
     withPostgres("people_empty") { conn =>
       Source.fromIterator(() => Iterator(actualFirstPeople, actualSecondPeople))
-        .runWith(PgCopyStreamConverters.sink(
-          "COPY people (id, name, age) FROM STDIN",
-          conn
-        ))
+        .runWith(PgCopyStreamConverters.sink(conn, "COPY people (id, name, age) FROM STDIN"))
         .map { rowCount =>
           rowCount shouldBe 2
 
