@@ -4,8 +4,8 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.ByteString
-import com.github.klpx.akka.PgCopyStreamConverters
 import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
+import ru.arigativa.akka.streams.PgCopyStreamConverters
 
 import scala.concurrent.Future
 

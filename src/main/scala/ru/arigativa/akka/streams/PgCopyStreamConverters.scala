@@ -1,4 +1,4 @@
-package com.github.klpx.akka
+package ru.arigativa.akka.streams
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Keep, Sink}
@@ -12,7 +12,10 @@ import scala.concurrent.Future
   */
 object PgCopyStreamConverters {
 
-  private def esc(s: String) = s.replace("""\""", """\\""")
+  def sink(sql: String, getConnection: => PGConnection, encoding: String = "UTF-8"): Sink[Product, Future[Long]] =
+    encodeTuples(encoding)
+      .toMat(bytesSink(sql, getConnection))(Keep.right)
+      .named("pgCopySink")
 
   def encodeTuples(encoding: String = "UTF-8"): Flow[Product, ByteString, NotUsed] =
     Flow[Product]
@@ -28,11 +31,7 @@ object PgCopyStreamConverters {
       }
       .map(ByteString.fromArray)
 
-
-  def sink(sql: String, getConnection: => PGConnection, encoding: String = "UTF-8"): Sink[Product, Future[Long]] =
-    encodeTuples(encoding)
-      .toMat(bytesSink(sql, getConnection))(Keep.right)
-      .named("pgCopySink")
+  private def esc(s: String) = s.replace("""\""", """\\""")
 
   def bytesSink(sql: String, getConnection: => PGConnection): Sink[ByteString, Future[Long]] =
     Sink.fromGraph(new PgCopySinkStage(sql, getConnection))

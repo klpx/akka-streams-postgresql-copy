@@ -1,4 +1,4 @@
-package com.github.klpx.akka
+package ru.arigativa.akka.streams
 
 import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, InHandler}
 import akka.stream.{Attributes, Inlet, SinkShape}
@@ -12,12 +12,11 @@ import scala.util.{Failure, Success, Try}
 /**
   * Sinks ByteString as postgres COPY data, returns count of rows copied
   */
-private[klpx] class PgCopySinkStage(sql: String,
+private[streams] class PgCopySinkStage(sql: String,
                       getConnection: => PGConnection
                      ) extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[Long]] {
 
   private val in = Inlet[ByteString]("PgCopySink.in")
-  override def shape: SinkShape[ByteString] = SinkShape.of(in)
 
   def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[Long]) = {
     val completePromise = Promise[Long]()
@@ -67,4 +66,6 @@ private[klpx] class PgCopySinkStage(sql: String,
 
     stageLogic -> completePromise.future
   }
+
+  override def shape: SinkShape[ByteString] = SinkShape.of(in)
 }

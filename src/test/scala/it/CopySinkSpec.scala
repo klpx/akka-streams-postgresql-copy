@@ -6,8 +6,8 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.github.klpx.akka.PgCopyStreamConverters
 import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
+import ru.arigativa.akka.streams.PgCopyStreamConverters
 import util.{ActorSystemFixture, PostgresFixture}
 
 /**

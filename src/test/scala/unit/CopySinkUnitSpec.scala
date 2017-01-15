@@ -4,7 +4,6 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.github.klpx.akka.PgCopyStreamConverters
 import org.postgresql.PGConnection
 import org.postgresql.copy.{CopyIn, CopyManager}
 import org.scalatest.mockito.MockitoSugar
@@ -12,6 +11,7 @@ import org.scalatest.{AsyncFlatSpec, BeforeAndAfter, BeforeAndAfterAll, Matchers
 import org.mockito.Mockito._
 import org.mockito.ArgumentMatchers.any
 import org.mockito.{InOrder, Mockito}
+import ru.arigativa.akka.streams.PgCopyStreamConverters
 import util.{ActorSystemFixture, PostgresMock}
 
 import scala.reflect.ClassTag
