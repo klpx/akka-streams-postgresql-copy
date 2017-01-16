@@ -2,7 +2,7 @@ name := "akka-streams-postgresql-copy"
 organization := "ru.arigativa"
 
 
-version := "0.2.1"
+version := "0.3.1"
 
 scalaVersion := "2.12.1"
 crossScalaVersions := Seq("2.12.1", "2.11.8")

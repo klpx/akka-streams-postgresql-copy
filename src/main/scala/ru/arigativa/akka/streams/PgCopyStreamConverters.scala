@@ -12,6 +12,16 @@ import scala.concurrent.Future
   */
 object PgCopyStreamConverters {
 
+  private val escapeSpecialChars: String => String =
+    Seq(
+      "\\" -> "\\\\", // escape `escape` character is first
+      "\b" -> "\\b", "\f" -> "\\f", "\n" -> "\\n",
+      "\r" -> "\\r", "\t" -> "\\t", "\u0011" -> "\\v"
+    ).foldLeft(identity[String] _) {
+      case (resultFunction, (sFrom, sTo)) =>
+        resultFunction.andThen(_.replace(sFrom, sTo))
+    }
+
   def sink(connectionProvider: ConnectionProvider, query: String, encoding: String = "UTF-8"): Sink[Product, Future[Long]] =
     encodeTuples(encoding)
       .toMat(bytesSink(connectionProvider, query))(Keep.right)
@@ -26,13 +36,11 @@ object PgCopyStreamConverters {
         _.productIterator
           .map {
             case None | null => """\N"""
-            case Some(value) => esc(value.toString)
-            case value => esc(value.toString)
+            case Some(value) => escapeSpecialChars(value.toString)
+            case value => escapeSpecialChars(value.toString)
           }
           .mkString("", "\t", "\n")
           .getBytes(encoding)
       }
       .map(ByteString.fromArray)
-
-  private def esc(s: String) = s.replace("""\""", """\\""")
 }

@@ -11,7 +11,7 @@ import scala.util.{Failure, Success, Try}
   */
 trait ConnectionProvider {
   def acquire(): Try[PGConnection]
-  def release(): Unit
+  def release(exOpt: Option[Throwable]): Unit
 }
 
 object ConnectionProvider {
@@ -19,16 +19,16 @@ object ConnectionProvider {
     new ConnectionProvider {
       private var conn: Try[BaseConnection] = Failure(new RuntimeException("Connection is not acquired"))
       def acquire(): Try[PGConnection] = {
-        release()
+        release(None)
         conn = Try(getConn())
         conn
       }
-      def release(): Unit = conn.foreach(_.close())
+      def release(exOpt: Option[Throwable]): Unit = conn.foreach(_.close())
     }
 
   implicit def pgConnectionToWrapperProvider(conn: PGConnection): ConnectionProvider =
     new ConnectionProvider {
       def acquire(): Try[PGConnection] = Success(conn)
-      def release(): Unit = ()
+      def release(exOpt: Option[Throwable]): Unit = ()
     }
 }

@@ -11,6 +11,8 @@ import ru.arigativa.akka.streams.ConnectionProvider._
 import ru.arigativa.akka.streams.PgCopyStreamConverters
 import util.PostgresFixture
 
+import scala.util.Random
+
 /**
   * Check for integration with Postgres in Docker is working
   */
@@ -47,6 +49,26 @@ class CopySinkSpec extends AsyncFlatSpec with Matchers with PostgresFixture with
 
   it should "copy simple Seq of tuples" in {
     val actualFirstPeople = (1L, "Alex", 25)
+    val actualSecondPeople = (2L, "Lisa", 21)
+    withPostgres("people_empty") { conn =>
+      Source.fromIterator(() => Iterator(actualFirstPeople, actualSecondPeople))
+        .runWith(PgCopyStreamConverters.sink(conn, "COPY people (id, name, age) FROM STDIN"))
+        .map { rowCount =>
+          rowCount shouldBe 2
+
+          val rs = conn.execSQLQuery("SELECT id, name, age FROM people")
+          val firstPeople = fetchPeople(rs)
+          val secondPeople = fetchPeople(rs)
+          conn.close()
+
+          firstPeople shouldBe actualFirstPeople
+          secondPeople shouldBe actualSecondPeople
+        }
+    }
+  }
+
+  it should "encode special characters correctly" in {
+    val actualFirstPeople = (1L, "Alex\r\n\t Hasselbach\\", 25)
     val actualSecondPeople = (2L, "Lisa", 21)
     withPostgres("people_empty") { conn =>
       Source.fromIterator(() => Iterator(actualFirstPeople, actualSecondPeople))
