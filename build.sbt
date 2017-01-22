@@ -2,7 +2,7 @@ name := "akka-streams-postgresql-copy"
 organization := "ru.arigativa"
 
 
-version := "0.3.1"
+version := "0.3.2"
 
 scalaVersion := "2.12.1"
 crossScalaVersions := Seq("2.12.1", "2.11.8")
@@ -18,7 +18,7 @@ libraryDependencies ++= {
 
     // testing
     ,"org.scalatest" %% "scalatest"    % "3.0.1" % "test"
-    ,"org.mockito"   %  "mockito-core" % "2.+"   % "test"
+    ,"org.mockito"   %  "mockito-core" % "2.6.5"   % "test"
   )
 }
 

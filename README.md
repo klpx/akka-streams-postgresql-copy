@@ -6,7 +6,7 @@
 Scala 2.12 and 2.11 is supported. Tested on PostgreSQL 9.4
 
 ## Installation
-`libraryDependencies ++= "ru.arigativa" %% "akka-streams-postgresql-copy" % "0.3.1"`
+`libraryDependencies ++= "ru.arigativa" %% "akka-streams-postgresql-copy" % "0.3.2"`
 
 ## Usage
 

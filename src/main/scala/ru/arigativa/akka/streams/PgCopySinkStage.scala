@@ -45,8 +45,8 @@ private[streams] class PgCopySinkStage(connectionProvider: ConnectionProvider, q
       override def onUpstreamFinish(): Unit = {
         Try(copyIn.endCopy()) match {
           case Success(rowsCopied) =>
-            completePromise.trySuccess(rowsCopied)
             connectionProvider.release(None)
+            completePromise.trySuccess(rowsCopied)
             completeStage()
           case Failure(ex) => fail(ex)
         }
