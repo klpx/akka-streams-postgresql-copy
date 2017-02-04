@@ -11,23 +11,44 @@ import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
 /**
+  * @param connectionProvider Object that provides connection and releases it when Sink is complete
+  * @param initialBufferSize COPY won't start until initial buffer is filled
+  */
+case class PgCopySinkSettings(
+                             connectionProvider: ConnectionProvider,
+                             initialBufferSize: Long = 0
+                             )
+
+/**
   * Sinks ByteString as postgres COPY data, returns count of rows copied
   */
-private[streams] class PgCopySinkStage(connectionProvider: ConnectionProvider, query: String) extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[Long]] {
+private[streams] class PgCopySinkStage(
+                                        query: String,
+                                        settings: PgCopySinkSettings
+                                      ) extends GraphStageWithMaterializedValue[SinkShape[ByteString], Future[Long]] {
 
   private val in = Inlet[ByteString]("PgCopySink.in")
 
   def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[Long]) = {
 
     val completePromise = Promise[Long]()
+    val maxInitialBufferSize = settings.initialBufferSize
+    val connectionProvider = settings.connectionProvider
+
     val stageLogic = new GraphStageLogic(shape) with InHandler {
+
+      private var initialBuffer: ByteString = ByteString.empty
       private var copyIn: CopyIn = _
 
       override def preStart(): Unit = {
+        pull(in)
+      }
+
+      private def initConnectionAndWriteBuffer(): Unit = {
         connectionProvider.acquire() match {
           case Success(conn) =>
             copyIn = conn.getCopyAPI.copyIn(query)
-            pull(in)
+            copyIn.writeToCopy(initialBuffer.toArray, 0, initialBuffer.length)
           case Failure(ex) => fail(ex)
         }
       }
@@ -35,7 +56,14 @@ private[streams] class PgCopySinkStage(connectionProvider: ConnectionProvider, q
       def onPush(): Unit = {
         val buf = grab(in)
         try {
-          copyIn.writeToCopy(buf.toArray, 0, buf.length)
+          if (copyIn == null) {
+            initialBuffer = initialBuffer ++ buf
+            if (initialBuffer.size >= maxInitialBufferSize) {
+              initConnectionAndWriteBuffer()
+            }
+          } else {
+            copyIn.writeToCopy(buf.toArray, 0, buf.length)
+          }
           pull(in)
         } catch {
           case ex: Throwable => fail(ex)
@@ -43,6 +71,9 @@ private[streams] class PgCopySinkStage(connectionProvider: ConnectionProvider, q
       }
 
       override def onUpstreamFinish(): Unit = {
+        if (copyIn == null && initialBuffer.nonEmpty) {
+          initConnectionAndWriteBuffer()
+        }
         Try(copyIn.endCopy()) match {
           case Success(rowsCopied) =>
             connectionProvider.release(None)
@@ -54,7 +85,7 @@ private[streams] class PgCopySinkStage(connectionProvider: ConnectionProvider, q
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
         try {
-          if (copyIn.isActive) {
+          if (copyIn != null && copyIn.isActive) {
             copyIn.cancelCopy()
           }
         } finally {
@@ -63,7 +94,9 @@ private[streams] class PgCopySinkStage(connectionProvider: ConnectionProvider, q
       }
 
       private def fail(ex: Throwable): Unit = {
-        connectionProvider.release(Some(ex))
+        if (copyIn != null) {
+          connectionProvider.release(Some(ex))
+        }
         completePromise.tryFailure(ex)
         failStage(ex)
       }

@@ -8,6 +8,7 @@ import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
 import ru.arigativa.akka.streams.PgCopyStreamConverters
 
 import scala.concurrent.Future
+import scala.io.Codec
 
 /**
   * Created by hsslbch on 1/14/17.
@@ -22,7 +23,7 @@ class EncodeTuplesSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAl
 
   def encodeTuples(input: Seq[Product]): Future[ByteString] = {
     Source.fromIterator(() => input.iterator)
-      .via(PgCopyStreamConverters.encodeTuples())
+      .via(PgCopyStreamConverters.encodeTuples(Codec.UTF8))
       .runWith(Sink.fold(ByteString("")) {
         case (acc, next) => acc ++ next
       })

@@ -1,11 +1,14 @@
 package ru.arigativa.akka.streams
 
+import java.nio.charset.Charset
+
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Keep, Sink}
 import akka.util.ByteString
 import org.postgresql.PGConnection
 
 import scala.concurrent.Future
+import scala.io.Codec
 
 /**
   * Created by hsslbch on 1/13/17.
@@ -22,15 +25,15 @@ object PgCopyStreamConverters {
         resultFunction.andThen(_.replace(sFrom, sTo))
     }
 
-  def sink(connectionProvider: ConnectionProvider, query: String, encoding: String = "UTF-8"): Sink[Product, Future[Long]] =
-    encodeTuples(encoding)
-      .toMat(bytesSink(connectionProvider, query))(Keep.right)
+  def sink(query: String, settings: PgCopySinkSettings)(implicit codec: Codec): Sink[Product, Future[Long]] =
+    encodeTuples(codec)
+      .toMat(bytesSink(query, settings))(Keep.right)
       .named("pgCopySink")
 
-  def bytesSink(connectionProvider: ConnectionProvider, query: String): Sink[ByteString, Future[Long]] =
-    Sink.fromGraph(new PgCopySinkStage(connectionProvider, query))
+  def bytesSink(query: String, settings: PgCopySinkSettings): Sink[ByteString, Future[Long]] =
+    Sink.fromGraph(new PgCopySinkStage(query,  settings))
 
-  def encodeTuples(encoding: String = "UTF-8"): Flow[Product, ByteString, NotUsed] =
+  def encodeTuples(implicit codec: Codec): Flow[Product, ByteString, NotUsed] =
     Flow[Product]
       .map {
         _.productIterator
@@ -40,7 +43,7 @@ object PgCopyStreamConverters {
             case value => escapeSpecialChars(value.toString)
           }
           .mkString("", "\t", "\n")
-          .getBytes(encoding)
+          .getBytes(codec.charSet)
       }
       .map(ByteString.fromArray)
 }
