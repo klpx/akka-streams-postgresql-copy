@@ -47,8 +47,12 @@ private[streams] class PgCopySinkStage(
       private def initConnectionAndWriteBuffer(): Unit = {
         connectionProvider.acquire() match {
           case Success(conn) =>
-            copyIn = conn.getCopyAPI.copyIn(query)
-            copyIn.writeToCopy(initialBuffer.toArray, 0, initialBuffer.length)
+            try {
+              copyIn = conn.getCopyAPI.copyIn(query)
+              copyIn.writeToCopy(initialBuffer.toArray, 0, initialBuffer.length)
+            } catch {
+              case ex: Throwable => fail(ex)
+            }
           case Failure(ex) => fail(ex)
         }
       }
@@ -71,15 +75,15 @@ private[streams] class PgCopySinkStage(
       }
 
       override def onUpstreamFinish(): Unit = {
-        if (copyIn == null && initialBuffer.nonEmpty) {
-          initConnectionAndWriteBuffer()
-        }
-        Try(copyIn.endCopy()) match {
-          case Success(rowsCopied) =>
-            connectionProvider.release(None)
-            completePromise.trySuccess(rowsCopied)
-            completeStage()
-          case Failure(ex) => fail(ex)
+        if (copyIn == null && initialBuffer.isEmpty) success(0)
+        else {
+          if (copyIn == null) {
+            initConnectionAndWriteBuffer()
+          }
+          Try(copyIn.endCopy()) match {
+            case Success(rowsCopied) => success(rowsCopied)
+            case Failure(ex) => fail(ex)
+          }
         }
       }
 
@@ -91,6 +95,14 @@ private[streams] class PgCopySinkStage(
         } finally {
           fail(ex)
         }
+      }
+
+      private def success(rowsCopied: Long): Unit = {
+        if (copyIn != null) {
+          connectionProvider.release(None)
+        }
+        completePromise.trySuccess(rowsCopied)
+        completeStage()
       }
 
       private def fail(ex: Throwable): Unit = {
