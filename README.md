@@ -6,13 +6,31 @@
 Scala 2.12 and 2.11 is supported. Tested on PostgreSQL 9.4 but you can pull this repository and run tests with your Postgres using Docker.
 
 ## Installation
-`libraryDependencies ++= "ru.arigativa" %% "akka-streams-postgresql-copy" % "0.4.1"`
+`libraryDependencies ++= "ru.arigativa" %% "akka-streams-postgresql-copy" % "0.5.0"`
 
 ## Usage
 
 ### Source
 
-_todo_
+`PgCopyStreamConverters.source` creates a `Source` of `Seq[String]`. Where each element is a column value (and can be `null`).
+
+```scala
+import ru.arigativa.akka.streams.{PgCopyStreamConverters, PgCopySinkSettings}
+import ru.arigativa.akka.streams.ConnectionProvider._ // Implicits for ConnectionProvider
+
+val conn: BaseConnection
+PgCopyStreamConverters.source("""
+        COPY (SELECT id, name, age FROM people) TO STDOUT
+    """, PgCopySourceSettings(conn))
+    .runWith(Sink.foreach(println))
+/*
+List(1, Alex, 26)
+List(2, Lisa, 22)
+List(3, With
+	 special chars\, 10)
+List(4, null, -1)
+*/
+```
 
 ### Sink
 
