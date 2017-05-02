@@ -48,26 +48,49 @@ object PgCopyStreamConverters {
   def bytesSource(query: String, settings: PgCopySourceSettings): Source[ByteString, Future[Long]] =
     Source.fromGraph(new PgCopySourceStage(query, settings))
 
+  /** sink creates a sink for Product-rows and copies them to the postgres database according to the query
+    *
+    * @param query COPY query
+    * @param settings
+    *
+    */
   def sink(query: String, settings: PgCopySinkSettings)(implicit codec: Codec): Sink[Product, Future[Long]] =
+    Flow[Product]
+      .map(_.productIterator)
+      .toMat(iteratorSink(query, settings))(Keep.right)
+
+  /** iteratorSink creates a sink for Iterator[Any]-rows and copies them to the postgres database according to the query
+    *
+    * @param query COPY query
+    * @param settings
+    *
+    */
+  def iteratorSink(query: String, settings: PgCopySinkSettings)(implicit codec: Codec): Sink[Iterator[Any], Future[Long]] =
     encodeTuples(codec)
       .toMat(bytesSink(query, settings))(Keep.right)
+
+  /** bytesSink creates a sink for ByteString endoded rows and copies them to the postgres database according to the query
+    *
+    * @param query COPY query
+    * @param settings
+    *
+    */
+  def bytesSink(query: String, settings: PgCopySinkSettings): Sink[ByteString, Future[Long]] =
+    Sink
+      .fromGraph(new PgCopySinkStage(query,  settings))
       .named("pgCopySink")
 
-  def bytesSink(query: String, settings: PgCopySinkSettings): Sink[ByteString, Future[Long]] =
-    Sink.fromGraph(new PgCopySinkStage(query,  settings))
-
-
-  def encodeTuples(implicit codec: Codec): Flow[Product, ByteString, NotUsed] =
-    Flow[Product]
-      .map {
-        _.productIterator
-          .map {
-            case None | null => """\N"""
-            case Some(value) => escape(value.toString)
-            case value => escape(value.toString)
-          }
+  def encodeTuples(implicit codec: Codec): Flow[Iterator[Any], ByteString, NotUsed] = {
+    Flow[Iterator[Any]]
+      .map{iterator =>
+        iterator.map {
+          case None | null => """\N"""
+          case Some(value) => escape(value.toString)
+          case value => escape(value.toString)
+        }
           .mkString("", "\t", "\n")
           .getBytes(codec.charSet)
       }
       .map(ByteString.fromArray)
+  }
 }

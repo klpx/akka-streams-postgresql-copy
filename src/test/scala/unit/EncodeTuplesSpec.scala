@@ -23,6 +23,7 @@ class EncodeTuplesSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAl
 
   def encodeTuples(input: Seq[Product]): Future[ByteString] = {
     Source.fromIterator(() => input.iterator)
+      .map(_.productIterator)
       .via(PgCopyStreamConverters.encodeTuples(Codec.UTF8))
       .runWith(Sink.fold(ByteString("")) {
         case (acc, next) => acc ++ next
