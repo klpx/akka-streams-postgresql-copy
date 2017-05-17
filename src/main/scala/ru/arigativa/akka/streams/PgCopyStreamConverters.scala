@@ -22,13 +22,13 @@ object PgCopyStreamConverters {
   )
 
   private val escape: String => String =
-    escapeChars.foldLeft(identity[String] _) {
+    escapeChars.foldLeft[String => String](identity) {
       case (resultFunction, (sFrom, sTo)) =>
         resultFunction.andThen(_.replace(sFrom, sTo))
     }
 
   private val unescape: String => String =
-    escapeChars.foldLeft(identity[String] _) {
+    escapeChars.foldLeft[String => String](identity) {
       case (resultFunction, (sTo, sFrom)) =>
         resultFunction.andThen(_.replace(sFrom, sTo))
     }

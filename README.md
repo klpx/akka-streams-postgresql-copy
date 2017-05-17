@@ -6,7 +6,7 @@
 Scala 2.12 and 2.11 is supported. Tested on PostgreSQL 9.4 but you can pull this repository and run tests with your Postgres using Docker.
 
 ## Installation
-`libraryDependencies ++= "ru.arigativa" %% "akka-streams-postgresql-copy" % "0.5.0"`
+`libraryDependencies ++= "ru.arigativa" %% "akka-streams-postgresql-copy" % "0.6.0"`
 
 ## Usage
 
