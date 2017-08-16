@@ -3,6 +3,8 @@ package ru.arigativa.akka.streams
 import java.nio.charset.Charset
 
 import akka.NotUsed
+import akka.stream.{ActorAttributes, Attributes}
+import akka.stream.Attributes._
 import akka.stream.scaladsl.{Flow, Framing, Keep, Sink, Source}
 import akka.util.ByteString
 import org.postgresql.PGConnection
@@ -33,6 +35,8 @@ object PgCopyStreamConverters {
         resultFunction.andThen(_.replace(sFrom, sTo))
     }
 
+  val DefaultAttributes: Attributes = name("pgCopy") and ActorAttributes.IODispatcher
+
   def source(query: String, settings: PgCopySourceSettings)(implicit codec: Codec): Source[Seq[String], Future[Long]] =
     bytesSource(query, settings)
       .via(Framing.delimiter(ByteString("\n"), maximumFrameLength = Int.MaxValue, allowTruncation = true))
@@ -46,7 +50,10 @@ object PgCopyStreamConverters {
       }
 
   def bytesSource(query: String, settings: PgCopySourceSettings): Source[ByteString, Future[Long]] =
-    Source.fromGraph(new PgCopySourceStage(query, settings))
+    Source
+      .fromGraph(new PgCopySourceStage(query, settings))
+      .withAttributes(DefaultAttributes)
+      .named("pgCopySource")
 
   /** sink creates a sink for Product-rows and copies them to the postgres database according to the query
     *
@@ -78,6 +85,7 @@ object PgCopyStreamConverters {
   def bytesSink(query: String, settings: PgCopySinkSettings): Sink[ByteString, Future[Long]] =
     Sink
       .fromGraph(new PgCopySinkStage(query,  settings))
+      .withAttributes(DefaultAttributes)
       .named("pgCopySink")
 
   def encodeTuples(implicit codec: Codec): Flow[Iterator[Any], ByteString, NotUsed] = {

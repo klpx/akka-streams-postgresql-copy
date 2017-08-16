@@ -1,12 +1,14 @@
 package ru.arigativa.akka.streams
 
+import akka.stream.ActorAttributes.Dispatcher
 import akka.stream._
-import akka.stream.stage.{GraphStageLogic, GraphStageWithMaterializedValue, OutHandler}
+import akka.stream.impl.Stages.DefaultAttributes.IODispatcher
+import akka.stream.stage.{AsyncCallback, GraphStageLogic, GraphStageWithMaterializedValue, OutHandler}
 import akka.util.ByteString
 import org.postgresql.copy.CopyOut
 
-import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success}
+import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.util.{Failure, Success, Try}
 
 
 /**
@@ -21,6 +23,8 @@ private[streams] class PgCopySourceStage(
 
   def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[Long]) = {
 
+    val dispatcherId = inheritedAttributes.get[Dispatcher](IODispatcher).dispatcher
+
     val completePromise = Promise[Long]()
     val connectionProvider = settings.connectionProvider
 
@@ -29,23 +33,34 @@ private[streams] class PgCopySourceStage(
       private var copyOut: CopyOut = _
       private var bytesCopied: Long = 0
 
+      private implicit var executionContext: ExecutionContext = _
+
+      private val downstreamCallback: AsyncCallback[Try[Option[ByteString]]] =
+        getAsyncCallback {
+          case Success(None)       => success(bytesCopied)
+          case Success(Some(elem)) => push(out, elem)
+          case Failure(ex)         => fail(ex)
+        }
+
+      override def preStart(): Unit = {
+        executionContext = materializer.asInstanceOf[ActorMaterializer].system.dispatchers.lookup(dispatcherId)
+        super.preStart()
+      }
+
       override def onPull(): Unit = {
-        if (copyOut == null) {
-          connectionProvider.acquire()
-            .map(_.getCopyAPI.copyOut(query)) match {
-            case Success(co) =>
-              copyOut = co
-            case Failure(ex) =>
-              fail(ex)
-              return
+        Future {
+          blocking {
+            if (copyOut == null) {
+              val conn = connectionProvider.acquire().get
+              copyOut = conn.getCopyAPI.copyOut(query)
+            }
+            Option(copyOut.readFromCopy())
+              .map { bytes =>
+                bytesCopied += bytes.length
+                ByteString(bytes)
+              }
           }
-        }
-        copyOut.readFromCopy() match {
-          case null => success(bytesCopied)
-          case bytes =>
-            bytesCopied += bytes.size
-            push(out, ByteString(bytes))
-        }
+        }.onComplete(downstreamCallback.invoke)
       }
 
       override def onDownstreamFinish(): Unit = {
