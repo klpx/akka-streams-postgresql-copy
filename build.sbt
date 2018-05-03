@@ -2,14 +2,14 @@ name := "akka-streams-postgresql-copy"
 organization := "ru.arigativa"
 
 
-version := "0.7.0"
+version := "0.8.0"
 
 scalaVersion := "2.12.2"
 crossScalaVersions := Seq("2.12.2", "2.11.8")
 
 
 libraryDependencies ++= {
-  val akkaVer = "2.4.16"
+  val akkaVer = "2.5.12"
 
   Seq(
      "com.typesafe.akka" %% "akka-stream"         % akkaVer    % "provided,test"

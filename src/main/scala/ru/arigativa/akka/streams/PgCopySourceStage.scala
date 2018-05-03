@@ -23,7 +23,7 @@ private[streams] class PgCopySourceStage(
 
   def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[Long]) = {
 
-    val dispatcherId = inheritedAttributes.get[Dispatcher](IODispatcher).dispatcher
+    val dispatcherId = "akka.stream.default-blocking-io-dispatcher"
 
     val completePromise = Promise[Long]()
     val connectionProvider = settings.connectionProvider
