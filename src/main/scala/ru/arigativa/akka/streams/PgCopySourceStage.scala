@@ -1,8 +1,6 @@
 package ru.arigativa.akka.streams
 
-import akka.stream.ActorAttributes.Dispatcher
 import akka.stream._
-import akka.stream.impl.Stages.DefaultAttributes.IODispatcher
 import akka.stream.stage.{AsyncCallback, GraphStageLogic, GraphStageWithMaterializedValue, OutHandler}
 import akka.util.ByteString
 import org.postgresql.copy.CopyOut
