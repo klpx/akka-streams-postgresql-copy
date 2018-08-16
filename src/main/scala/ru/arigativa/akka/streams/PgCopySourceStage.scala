@@ -29,14 +29,15 @@ private[streams] class PgCopySourceStage(
     val stageLogic = new GraphStageLogic(shape) with OutHandler {
 
       private var copyOut: CopyOut = _
+      private var connIsAcq: Boolean = false
       private var bytesCopied: Long = 0
 
       private implicit var executionContext: ExecutionContext = _
 
       private val downstreamCallback: AsyncCallback[Try[Option[ByteString]]] =
         getAsyncCallback {
-          case Success(None)       => success(bytesCopied)
           case Success(Some(elem)) => push(out, elem)
+          case Success(None)       => success(bytesCopied)
           case Failure(ex)         => fail(ex)
         }
 
@@ -48,7 +49,8 @@ private[streams] class PgCopySourceStage(
       override def onPull(): Unit = {
         Future {
           blocking {
-            if (copyOut == null) {
+            if (copyOut == null && !connIsAcq) {
+              connIsAcq = true
               val conn = connectionProvider.acquire().get
               copyOut = conn.getCopyAPI.copyOut(query)
             }
@@ -64,12 +66,13 @@ private[streams] class PgCopySourceStage(
       override def onDownstreamFinish(): Unit = {
         if (copyOut != null && copyOut.isActive) {
           copyOut.cancelCopy()
-          success(bytesCopied)
         }
+        success(bytesCopied)
       }
 
       private def success(bytesCopied: Long): Unit = {
-        if (copyOut != null) {
+        if (connIsAcq) {
+          connIsAcq = false
           connectionProvider.release(None)
         }
         completePromise.trySuccess(bytesCopied)
@@ -77,7 +80,8 @@ private[streams] class PgCopySourceStage(
       }
 
       private def fail(ex: Throwable): Unit = {
-        if (copyOut != null) {
+        if (connIsAcq) {
+          connIsAcq = false
           connectionProvider.release(Some(ex))
         }
         completePromise.tryFailure(ex)
