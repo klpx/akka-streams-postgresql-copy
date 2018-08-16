@@ -21,8 +21,6 @@ private[streams] class PgCopySourceStage(
 
   def createLogicAndMaterializedValue(inheritedAttributes: Attributes): (GraphStageLogic, Future[Long]) = {
 
-    val dispatcherId = "akka.stream.default-blocking-io-dispatcher"
-
     val completePromise = Promise[Long]()
     val connectionProvider = settings.connectionProvider
 
@@ -32,35 +30,23 @@ private[streams] class PgCopySourceStage(
       private var connIsAcq: Boolean = false
       private var bytesCopied: Long = 0
 
-      private implicit var executionContext: ExecutionContext = _
-
-      private val downstreamCallback: AsyncCallback[Try[Option[ByteString]]] =
-        getAsyncCallback {
+      override def onPull(): Unit = {
+        Try {
+          if (copyOut == null && !connIsAcq) {
+            connIsAcq = true
+            val conn = connectionProvider.acquire().get
+            copyOut = conn.getCopyAPI.copyOut(query)
+          }
+          Option(copyOut.readFromCopy())
+            .map { bytes =>
+              bytesCopied += bytes.length
+              ByteString(bytes)
+            }
+        } match {
           case Success(Some(elem)) => push(out, elem)
           case Success(None)       => success(bytesCopied)
           case Failure(ex)         => fail(ex)
         }
-
-      override def preStart(): Unit = {
-        executionContext = materializer.asInstanceOf[ActorMaterializer].system.dispatchers.lookup(dispatcherId)
-        super.preStart()
-      }
-
-      override def onPull(): Unit = {
-        Future {
-          blocking {
-            if (copyOut == null && !connIsAcq) {
-              connIsAcq = true
-              val conn = connectionProvider.acquire().get
-              copyOut = conn.getCopyAPI.copyOut(query)
-            }
-            Option(copyOut.readFromCopy())
-              .map { bytes =>
-                bytesCopied += bytes.length
-                ByteString(bytes)
-              }
-          }
-        }.onComplete(downstreamCallback.invoke)
       }
 
       override def onDownstreamFinish(): Unit = {
