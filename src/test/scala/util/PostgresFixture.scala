@@ -15,9 +15,8 @@ trait PostgresFixture extends BaseFixture with BeforeAndAfterAll { self: Suite =
   /** Execute a test against all supported versions of Postgres in parallel. */
   def withPostgres(fixtureName: String)
                    (testCode: BaseConnection => Future[Assertion]): Future[Assertion] = {
-    val dbName = "test_" + Random.alphanumeric.take(6).mkString.toLowerCase()
-
     Future.traverse(PostgresFixture.PostgresImages) { image =>
+      val dbName = "test_" + Random.alphanumeric.take(6).mkString.toLowerCase()
       PostgresContainer.withPostgresContainer(image) { connection =>
         connection.createStatement().execute(s"CREATE DATABASE $dbName;")
         connection.createStatement().execute(Resource.read(s"/fixtures/$fixtureName.sql"))

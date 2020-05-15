@@ -61,16 +61,18 @@ private object PostgresContainer {
 
   /** Retry getting a connection to a container until a maximum number of attempts is reached. */
   private def waitUntilReady(container: PostgresContainer, attempts: Int = 0): Try[PostgresContainer] = {
-    if (attempts > 10) Failure(new RuntimeException("Unable to start Postgres container."))
-
-    getConnection(container).map { connection =>
-      connection.createStatement()
-      connection.close()
-      container
-    }.recoverWith {
-      case _: SQLException =>
-        Thread.sleep((attempts + 1) * 200)
-        waitUntilReady(container, attempts + 1)
+    if (attempts > 10) {
+      Failure(new RuntimeException("Unable to start Postgres container."))
+    } else {
+      getConnection(container).map { connection =>
+        connection.createStatement()
+        connection.close()
+        container
+      }.recoverWith {
+        case _: SQLException =>
+          Thread.sleep((attempts + 1) * 200)
+          waitUntilReady(container, attempts + 1)
+      }
     }
   }
 
