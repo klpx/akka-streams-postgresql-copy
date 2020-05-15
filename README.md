@@ -1,6 +1,6 @@
 # Postgres COPY in/out Akka Streams Adapters
 
-[![Build Status](https://travis-ci.org/klpx/akka-streams-postgresql-copy.svg?branch=master)](https://travis-ci.org/klpx/akka-streams-postgresql-copy) [![Coverage Status](https://coveralls.io/repos/github/klpx/akka-stream-postgresql-copy/badge.svg?branch=master)](https://coveralls.io/github/klpx/akka-stream-postgresql-copy?branch=master)
+![Scala CI](https://github.com/klpx/akka-streams-postgresql-copy/workflows/Scala%20CI/badge.svg)
 
 ## Requirements
 Scala 2.13, 2.12, and 2.11 is supported. Tested on PostgreSQL 9.4 but you can pull this repository and run tests with your Postgres using Docker.
