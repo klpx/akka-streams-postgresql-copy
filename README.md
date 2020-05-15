@@ -3,10 +3,10 @@
 [![Build Status](https://travis-ci.org/klpx/akka-streams-postgresql-copy.svg?branch=master)](https://travis-ci.org/klpx/akka-streams-postgresql-copy) [![Coverage Status](https://coveralls.io/repos/github/klpx/akka-stream-postgresql-copy/badge.svg?branch=master)](https://coveralls.io/github/klpx/akka-stream-postgresql-copy?branch=master)
 
 ## Requirements
-Scala 2.12 and 2.11 is supported. Tested on PostgreSQL 9.4 but you can pull this repository and run tests with your Postgres using Docker.
+Scala 2.13, 2.12, and 2.11 is supported. Tested on PostgreSQL 9.4 but you can pull this repository and run tests with your Postgres using Docker.
 
 ## Installation
-`libraryDependencies ++= "ru.arigativa" %% "akka-streams-postgresql-copy" % "0.8.2"`
+`libraryDependencies ++= "ru.arigativa" %% "akka-streams-postgresql-copy" % "0.9.0"`
 
 ## Usage
 

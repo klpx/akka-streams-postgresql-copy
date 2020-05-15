@@ -1,10 +1,10 @@
 package util
 
+import org.mockito.ArgumentMatchers._
+import org.mockito.Mockito._
 import org.postgresql.PGConnection
 import org.postgresql.copy.{CopyIn, CopyManager}
-import org.scalatest.mockito.MockitoSugar
-import org.mockito.Mockito._
-import org.mockito.ArgumentMatchers._
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.reflect.ClassTag
 

@@ -6,8 +6,8 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import org.mockito.Mockito
 import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
+import org.scalatestplus.mockito.MockitoSugar
 import ru.arigativa.akka.streams.ConnectionProvider._
 import ru.arigativa.akka.streams.{PgCopySinkSettings, PgCopyStreamConverters}
 import util.PostgresMock
