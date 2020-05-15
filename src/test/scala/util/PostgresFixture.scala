@@ -1,10 +1,7 @@
 package util
 
-import java.sql.DriverManager
-
-import com.typesafe.config.ConfigFactory
 import org.postgresql.core.BaseConnection
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Suite}
+import org.scalatest.{Assertion, BeforeAndAfterAll, Succeeded, Suite}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Random
@@ -13,36 +10,37 @@ import scala.util.Random
   * Created by hsslbch on 9/9/16.
   */
 trait PostgresFixture extends BaseFixture with BeforeAndAfterAll { self: Suite =>
+  import ExecutionContext.Implicits.global
 
-  override def afterAll(): Unit = {
-    super.afterAll()
-    if (manageConnectionIsOpened) {
-      manageConnection.close()
-    }
-  }
-
-  private val config = ConfigFactory.load().getConfig("postgres")
-  private val url = config.getString("url")
-  private val username = config.getString("username")
-  private val password = config.getString("password")
-
-  private var manageConnectionIsOpened = false
-  private lazy val manageConnection = {
-    manageConnectionIsOpened = true
-    DriverManager.getConnection(url, username, password)
-  }
-
-  def withPostgres[T](fixtureName: String)
-                     (testCode: BaseConnection => Future[T]): Future[T] = {
+  /** Execute a test against all supported versions of Postgres in parallel. */
+  def withPostgres(fixtureName: String)
+                   (testCode: BaseConnection => Future[Assertion]): Future[Assertion] = {
     val dbName = "test_" + Random.alphanumeric.take(6).mkString.toLowerCase()
-    manageConnection.createStatement().execute(s"CREATE DATABASE $dbName;")
 
-    val conn = DriverManager.getConnection(url + dbName, username, password).asInstanceOf[BaseConnection]
-    conn.createStatement().execute(Resource.read(s"/fixtures/$fixtureName.sql"))
+    Future.traverse(PostgresFixture.PostgresImages) { image =>
+      PostgresContainer.withPostgresContainer(image) { connection =>
+        connection.createStatement().execute(s"CREATE DATABASE $dbName;")
+        connection.createStatement().execute(Resource.read(s"/fixtures/$fixtureName.sql"))
 
-    withOneArg(conn)(testCode) {
-      conn.close()
-      manageConnection.createStatement().execute(s"DROP DATABASE $dbName")
-    }
+        testCode(connection)
+      }
+    }.map(reduceAssertions)
   }
+
+  /** Assert that every assertion in a collection is successful. */
+  private def reduceAssertions(assertions: Set[Assertion]): Assertion = {
+    assert(assertions.forall(_ == Succeeded))
+  }
+}
+
+object PostgresFixture {
+
+  /** Postgres images that will be used for testing. */
+  final val PostgresImages: Set[String] = Set(
+    "postgres:12-alpine",
+    "postgres:11-alpine",
+    "postgres:10-alpine",
+    "postgres:9-alpine"
+  )
+
 }
