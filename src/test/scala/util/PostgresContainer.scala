@@ -38,20 +38,22 @@ private object PostgresContainer {
         .withPublishAllPorts(true)
     } { docker => container =>
 
-      val hostPort = {
+      val hostPort = Try {
         val inspect = docker.inspectContainerCmd(container.getId).exec()
         val portBindings = inspect.getNetworkSettings.getPorts.getBindings.asScala
         portBindings.values.flatten.head.getHostPortSpec.toInt
       }
 
-      val postgresContainer = waitUntilReady(
-        PostgresContainer(
-          containerId = container.getId,
-          port = hostPort,
-          username = username,
-          password = Some(password)
+      val postgresContainer = hostPort.flatMap { hostPort =>
+        waitUntilReady(
+          PostgresContainer(
+            containerId = container.getId,
+            port = hostPort,
+            username = username,
+            password = Some(password)
+          )
         )
-      )
+      }
 
       Future.fromTry(postgresContainer.flatMap(getConnection)).flatMap(fn)
     }
