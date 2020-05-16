@@ -25,15 +25,11 @@ private object Docker {
     val config = DefaultDockerClientConfig.createDefaultConfigBuilder.build()
     val docker = DockerClientBuilder.getInstance(config).build()
 
-    // Pull the image if it isn't locally cached.
-    // This is a blocking call.
-    pullContainer(docker, image)
-
-    // Create and start the container.
-    val container = Try(createContainer(docker).exec())
-    container.map { c =>
-      docker.startContainerCmd(c.getId).exec()
-    }
+    val container = for {
+      _ <- pullContainer(docker, image)
+      container <- Try(createContainer(docker).exec())
+      _ <- Try(docker.startContainerCmd(container.getId).exec())
+    } yield container
 
     // Run the container access code.
     val accessResult = Future.fromTry(container).flatMap(accessContainer(docker))
@@ -53,14 +49,17 @@ private object Docker {
 
   /** Pull container if it's not already local. */
   private def pullContainer(docker: DockerClient, image: String): Try[Unit] = Try {
-    val images = docker.listImagesCmd().exec().asScala
-    if (images.exists(_.getRepoTags.contains(image))) {
+    val images = docker.listImagesCmd()
+      .exec().asScala.toList
+      .flatMap(_.getRepoTags.toList)
+
+    if (images.contains(image)) {
       () // Do nothing.
     } else {
       val promise = Promise.apply[Unit]()
       docker.pullImageCmd(image).exec(new ResultCallback[PullResponseItem] {
         override def onStart(closeable: Closeable): Unit = ()
-        override def onNext(`object`: PullResponseItem): Unit = ()
+        override def onNext(response: PullResponseItem): Unit = ()
         override def onError(throwable: Throwable): Unit = promise.failure(throwable)
         override def onComplete(): Unit = promise.success(())
         override def close(): Unit = ()
