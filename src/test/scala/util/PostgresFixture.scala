@@ -21,7 +21,9 @@ trait PostgresFixture extends BaseFixture with BeforeAndAfterAll { self: Suite =
         connection.createStatement().execute(s"CREATE DATABASE $dbName;")
         connection.createStatement().execute(Resource.read(s"/fixtures/$fixtureName.sql"))
 
-        testCode(connection)
+        withClue(s"postgres image: $image") {
+          testCode(connection)
+        }
       }
     }.map(reduceAssertions)
   }
