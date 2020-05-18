@@ -49,9 +49,12 @@ private object Docker {
 
   /** Pull container if it's not already local. */
   private def pullContainer(docker: DockerClient, image: String): Try[Unit] = Try {
-    val images = docker.listImagesCmd()
-      .exec().asScala.toList
-      .flatMap(_.getRepoTags.toList)
+    val images: List[String] =
+      docker.listImagesCmd()
+        .exec().asScala.toList
+        .flatMap { x =>
+          Option(x.getRepoTags).map(_.toList).getOrElse(Nil)
+        }
 
     if (images.contains(image)) {
       () // Do nothing.
